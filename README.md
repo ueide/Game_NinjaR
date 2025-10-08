@@ -21,10 +21,10 @@ You can [access the live demo](https://game-ninjarun.vercel.app)
 - **Structure:** HTML5 and CSS
 
 ## Run the Project Locally
-1. **Open the file where you will put this project**
+1. **Open the file where you will place this project**
    - Open the Terminal.
-   - Access the file where you will put this project inside.
-   - Open file in the terminal.
+   - Access the file where you will place this project.
+   - Open the file in the terminal.
    
    ```bash
     cd/d(path to your file)
@@ -36,9 +36,9 @@ You can [access the live demo](https://game-ninjarun.vercel.app)
     ```
     
 3. **Live server**
-   - Open the file in a code editor like visual studio code.
+   - Open the file in a code editor like Visual Studio Code.
    - Find and select the file "index.html".
-   - Click in "live server".
+   - Click on "live server".
 
 
 ## How to Play
