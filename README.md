@@ -36,7 +36,7 @@ You can [access the live demo](https://game-ninjarun.vercel.app)
     ```
     
 3. **Live server**
-   - Open the file in a code editor like Visual Studio Code.
+   - Open the project file in a code editor like Visual Studio Code.
    - Find and select the file "index.html".
    - Click on "live server".
 
