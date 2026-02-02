@@ -672,8 +672,17 @@ function startGame() {
 // ==================== INPUT HANDLING ====================
 
 function keyPressed() {
+    // R key to restart (allow anytime)
+    if (keyCode == 82) { // R key
+        restartGame();
+        return;
+    }
+    
     // Only allow input when actually playing the game (screen 2)
     if (screen != 2) return;
+    
+    // Block movement input if level is complete
+    if (flagPole && flagPole.isReached) return;
     
     // left side --> leftArrow || A
 	if (keyCode == 37 || keyCode == 65) {
@@ -699,6 +708,9 @@ function keyPressed() {
 function keyReleased() {
     // Only allow input when actually playing the game (screen 2)
     if (screen != 2) return;
+    
+    // Block input if level is complete
+    if (flagPole && flagPole.isReached) return;
     
     // left side -- leftArrow || A
     if (keyCode == 37 || keyCode == 65) {
