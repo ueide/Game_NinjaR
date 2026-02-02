@@ -1,18 +1,22 @@
-// Game Project
+// ====================
+// NINJA RUN - Main Game File
+// ====================
+// This is the main game controller. Game logic, state management, and rendering.
+// For configuration, see config.js
+// For utilities, see utils.js
+// For entities (classes), see entities.js
+// ====================
 
+// Game State Variables
 var floor;
 var screen;
 var gameChar_x;
 var gameChar_y;
 var enemies;
-var eneLeft;
-var eneRight;
 var treePos_y;
 var trees_x;
 var canyon;
-var canyonPos_X;
 var collectable;
-var isFound;
 var mountainsPos_x;
 var mountainPos_Y;
 var clouds;
@@ -35,94 +39,126 @@ var gameThemeSound;
 var jumpSound;
 var levelCompleteSound;
 var menuGameSound;
+var particles;
+var smoothCameraPosX;
+var totalCoins;
+var totalCoinsCollected;
+var coinBounceOffset;
+var hitSoundPlayed;
 
 function preload() {
     //images
-    menuBG = loadImage("images/menuGameScreen.png");
+    try {
+        menuBG = loadImage("images/menuGameScreen.png");
+    } catch(e) {
+        console.error("Failed to load menu background image:", e);
+    }
 
     //sounds
     soundFormats("mp3");
-    coinSound = loadSound("sounds/coin.mp3");
-    deadSound = loadSound("sounds/dead.mp3");
-    fallDownSound = loadSound("sounds/fallDown.mp3");
-    gameThemeSound = loadSound("sounds/gameTheme.mp3");
-    jumpSound = loadSound("sounds/jump.mp3");
-    levelCompleteSound = loadSound("sounds/levelComplete.mp3");
-    menuGameSound = loadSound("sounds/menuGame.mp3");
+    try {
+        coinSound = loadSound("sounds/coin.mp3");
+        deadSound = loadSound("sounds/dead.mp3");
+        fallDownSound = loadSound("sounds/fallDown.mp3");
+        gameThemeSound = loadSound("sounds/gameTheme.mp3");
+        jumpSound = loadSound("sounds/jump.mp3");
+        levelCompleteSound = loadSound("sounds/levelComplete.mp3");
+        menuGameSound = loadSound("sounds/menuGame.mp3");
+    } catch(e) {
+        console.error("Failed to load sound files:", e);
+    }
 }
 
 function setup() {
-	createCanvas(1024, 576);
-	floor = { x_pos: 0, y_pos: 500, width, height };
-    lives = 3;
-    screen = 0;
+	createCanvas(GAME_CONFIG.CANVAS_WIDTH, GAME_CONFIG.CANVAS_HEIGHT);
+	pixelDensity(1);
+	floor = FLOOR_CONFIG;
+    lives = GAME_CONFIG.INITIAL_LIVES;
+    screen = GAME_CONFIG.STATES.LOAD_SCREEN;
+    particles = [];
+    smoothCameraPosX = 0;
+    coinBounceOffset = 0;
+    hitSoundPlayed = false;
     startGame();
 }
 
 function draw() {
-    //-------- Verify screen --------//
-    if(screen == 0) {
-        loadScreen(); //click to start
+    if(screen == GAME_CONFIG.STATES.LOAD_SCREEN) {
+        loadScreen();
     }
-    else if(screen == 1) {
-        menuGame(); //menu game
+    else if(screen == GAME_CONFIG.STATES.MENU) {
+        menuGame();
     }
-    else if (screen == 2) {
-        drawGame(); //the game
+    else if(screen == GAME_CONFIG.STATES.PLAYING) {
+        drawGame();
     }
-    else if(screen == 3) {
-        restartGame(); // play again
+    else if(screen == GAME_CONFIG.STATES.RESTART) {
+        restartGame();
     }
 }
 
 function verifySound(sound) {
-    if(sound.isPlaying() == false) {
+    if(sound && sound.isPlaying && sound.isPlaying() == false) {
         sound.play();
     }
 }
 
+// ==================== UI/MENU FUNCTIONS ====================
+
 function menuGame() {
-    //-------- menu sound --------//
+    // Sound management
     verifySound(menuGameSound);
-    menuGameSound.setVolume(0.3);
+    setSoundVolume(menuGameSound, GAME_CONFIG.SOUND_VOLUMES.MENU);
 
-    //Menu background
-    image(menuBG, 0, 0, width, height);
+    // Menu background
+    if(menuBG) {
+        image(menuBG, 0, 0, width, height);
+    } else {
+        background(100, 149, 237);
+    }
 
-	//Buttons
-	stroke(0);
-	strokeWeight(2);
-	fill(255);
-	rect(683, 260, 170, 58, 40);
+    // Draw buttons
+    stroke(0);
+    strokeWeight(2);
+    
+    // Start button with hover effect
+    let startHovered = (mouseX > 683 && mouseX < 853 && mouseY > 259 && mouseY < 318);
+    if(startHovered) {
+        fill(GAME_CONFIG.UI.BUTTON_HOVER_COLOR);
+    } else {
+        fill(GAME_CONFIG.UI.BUTTON_NORMAL_COLOR);
+    }
+    rect(683, 260, 170, 58, 40);
 
-	noStroke();
-	rect(683, 382, 170, 44, 32);
-	rect(683, 460, 170, 44, 32);
+    // Settings and Exit buttons (no hover)
+    fill(GAME_CONFIG.UI.BUTTON_NORMAL_COLOR);
+    noStroke();
+    rect(683, 382, 170, 44, 32);
+    rect(683, 460, 170, 44, 32);
 
-	fill(0);
-	textSize(30);
-	text("Start", 736, 300);
+    // Button text
+    fill(0);
+    textSize(30);
+    text("Start", 736, 300);
 
-	textSize(22);
-	text("Settings", 729, 412);
-	text("Exit", 748, 491);
+    textSize(22);
+    text("Settings", 729, 412);
+    text("Exit", 748, 491);
 }
 
 function drawGame() {
-    //-------- game theme sound --------//
+    // ==================== SETUP ====================
     verifySound(gameThemeSound);
-    gameThemeSound.setVolume(0.4);
+    setSoundVolume(gameThemeSound, GAME_CONFIG.SOUND_VOLUMES.MUSIC);
 
-    //-------- boot cameraPosX --------//
-    cameraPosX = gameChar_x - 360;
+    cameraPosX = gameChar_x - GAME_CONFIG.CAMERA.OFFSET;
+    smoothCameraPosX = lerp(smoothCameraPosX, cameraPosX, GAME_CONFIG.CAMERA.LERP_SPEED);
 
-    //-------- sky --------//
+    // ==================== RENDERING ====================
     background(16, 40, 73);
 
-    //----------------------- translate START -----------------------//
     push();
-    translate(-cameraPosX, 0);
-    //------------
+    translate(-smoothCameraPosX, 0);
 
     //-------- mountains --------//
     drawMountains();
@@ -148,7 +184,7 @@ function drawGame() {
     drawCanyons(canyon);
     checkCanyons(canyon);
 
-    //-------- design platform --------//
+    //-------- platforms with gradient --------//
     for(var i = 0; i < platform.length; i++) {
         platform[i].draw();
     }
@@ -168,13 +204,12 @@ function drawGame() {
         var onEnemies = enemies[i].checkEnemies(gameChar_x, gameChar_y);
         
         if(onEnemies) {
-            //If the character touches the enemy, he dies with the same animation... 
-            // ...as when he falls into the canyon.
             canyon.isFound = true;
+            createHitEffect(gameChar_x, gameChar_y);
         }
     }
 
-    //-------- collectable items --------//
+    //-------- collectables --------//
     drawCollectables(collectable);
     checkCollectables(collectable);
 
@@ -411,10 +446,13 @@ function drawGame() {
     //-------- Plummeting -------//
     if (canyon.isFound == true) {
         gameChar_y += 5;
-        //sound 
-        gameThemeSound.setVolume(0.1);
-        verifySound(fallDownSound);
-        fallDownSound.setVolume(0.3);
+        //sound - play only once
+        if(!hitSoundPlayed) {
+            if(gameThemeSound) gameThemeSound.setVolume(0.1);
+            verifySound(fallDownSound);
+            if(fallDownSound) fallDownSound.setVolume(0.3);
+            hitSoundPlayed = true;
+        }
 
         if(gameChar_y >= 850) {
             isPlummeting = true;
@@ -425,14 +463,16 @@ function drawGame() {
     }
 
     //---------- Moon ----------//
+    // Moon moves at 5% of camera speed (parallax effect)
+    let moonOffsetX = smoothCameraPosX * 0.05;
     fill(240, 240, 240, 18);
     noStroke();
-    ellipse(moon.x_pos + 570, moon.y_pos, moon.size + 55, moon.size + 55);
+    ellipse(moon.x_pos + 570 - moonOffsetX, moon.y_pos, moon.size + 55, moon.size + 55);
 
     fill(240, 240, 240);
-    ellipse(moon.x_pos + 570, moon.y_pos, moon.size + 40, moon.size + 40);
+    ellipse(moon.x_pos + 570 - moonOffsetX, moon.y_pos, moon.size + 40, moon.size + 40);
 
-    //-------- Clouds --------//
+    //-------- Clouds with parallax --------//
     drawClouds();
 
     //-------- game over AND try again --------//
@@ -440,9 +480,9 @@ function drawGame() {
         screen = 3;
 
         // sound
-        gameThemeSound.stop(); //stop game theme sound
+        if(gameThemeSound) gameThemeSound.stop(); //stop game theme sound
         verifySound(deadSound); // play dead sound
-        deadSound.setVolume(0.6);
+        if(deadSound) deadSound.setVolume(0.6);
 
         // text "game over"
         fill(0, 140);
@@ -475,10 +515,10 @@ function drawGame() {
     //Level complete
     if (flagPole.isReached == true) {
         // sound
-        gameThemeSound.stop();
+        if(gameThemeSound) gameThemeSound.stop();
 
         verifySound(levelCompleteSound);
-        levelCompleteSound.setVolume(0.3);
+        if(levelCompleteSound) levelCompleteSound.setVolume(0.3);
 
         // text "level complete"
         fill(255);
@@ -497,17 +537,23 @@ function drawGame() {
         }
     }
 
-    //-------- coin score -------//
+    //-------- coin score with bouncing animation -------//
     fill(255);
     noStroke();
     textSize(16);
-    text(scoreCoin, 68, 36);
+    
+    // Bouncing coin animation
+    coinBounceOffset = sin(frameCount * 0.1) * 3;
+    
+    // Total coins collected / total coins
+    text(totalCoinsCollected + "/" + totalCoins, 68, 36);
+    
     fill(255, 223, 0);
-    ellipse(50, 30, 17, 21);
+    ellipse(50, 30 + coinBounceOffset, 17, 21);
 
     strokeWeight(1.5);
     stroke(196, 167, 53);
-    ellipse(50, 30, 11, 15);
+    ellipse(50, 30 + coinBounceOffset, 11, 15);
     noStroke();
 
     //-------- life score -------//
@@ -520,10 +566,27 @@ function drawGame() {
     triangle(111.5, 28.5, 120.3, 39, 129, 28.5);
     ellipse(116, 26, 10);
     ellipse(124.5, 26, 10);
+    
+    //----------------------- translate END -----------------------//
+    pop();
+    //----
+    
+    //-------- update and render particles with camera offset --------//
+    for(let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].displayWithOffset(smoothCameraPosX);
+        if(particles[i].isDead()) {
+            particles.splice(i, 1);
+        }
+    }
 }
+
+// ==================== INITIALIZATION ====================
 
 function startGame() {
     cameraPosX = 0;
+    smoothCameraPosX = 0;
+    hitSoundPlayed = false;
 	gameChar_x = floor.x_pos + 360;
 	gameChar_y = floor.y_pos + 3;
 
@@ -565,6 +628,10 @@ function startGame() {
         { x_pos: 2300, y_pos: 485, size: 50, isFound: false},
 	];
 
+    // Set total coins for HUD display
+    totalCoins = collectable.length;
+    totalCoinsCollected = 0;
+
 	mountainsPos_x = [341, 1500, 2700];
 	mountainPos_Y = height / 3;
 
@@ -602,7 +669,12 @@ function startGame() {
     platform.push(createPlatform(1650, floor.y_pos - 155, 210));
 }
 
+// ==================== INPUT HANDLING ====================
+
 function keyPressed() {
+    // Only allow input when actually playing the game (screen 2)
+    if (screen != 2) return;
+    
     // left side --> leftArrow || A
 	if (keyCode == 37 || keyCode == 65) {
         isLeft = true;
@@ -616,13 +688,18 @@ function keyPressed() {
     if (keyCode == 38 || keyCode == 87 || keyCode == 32) {
         if(isFalling == false || onPlatform == true) {
             gameChar_y -= 140;
-            jumpSound.play();
-            jumpSound.setVolume(0.3);
+            if(jumpSound) {
+                jumpSound.play();
+                jumpSound.setVolume(0.3);
+            }
         }
     }
 }
 
 function keyReleased() {
+    // Only allow input when actually playing the game (screen 2)
+    if (screen != 2) return;
+    
     // left side -- leftArrow || A
     if (keyCode == 37 || keyCode == 65) {
         isLeft = false;
@@ -637,12 +714,18 @@ function keyReleased() {
 function mouseClicked() {
     if(screen == 3 && (mouseX > 454 && mouseX < 584 && 
     mouseY > 272 && mouseY < 320)) {
-        restartGame(); //restart
+        lives = 3; // Reset lives
+        if(deadSound) deadSound.stop();
+        startGame(); // Reset all game state
+        loop(); // Resume game loop
+        screen = 0; // Go back to start screen
     }
 
     if(screen == 1 && (mouseX > 682 && mouseX < 853 && 
     mouseY > 259 && mouseY < 318)) {
-        menuGameSound.stop();
+        if(menuGameSound) menuGameSound.stop();
+        startGame(); // Reset game state
+        loop(); // Ensure game loop is running
         screen = 2; //game
     }
 
@@ -651,15 +734,22 @@ function mouseClicked() {
     }
 }
 
+// ==================== WORLD RENDERING ====================
+
 function drawClouds() {
+    // Clouds move at 15% of camera speed (parallax effect)
+    let cloudOffset = smoothCameraPosX * 0.15;
+    
     for (var i = 0; i < clouds.x_pos.length; i++) {
+        let cloudX = clouds.x_pos[i] - cloudOffset;
+        
         fill(204, 204, 204);
         noStroke();
-        ellipse(clouds.x_pos[i],clouds.y_pos[i], clouds.size_1[i], clouds.size_2[i]);
+        ellipse(cloudX, clouds.y_pos[i], clouds.size_1[i], clouds.size_2[i]);
 
-        if (clouds.x_pos[i] < 0.1) {
-            clouds.x_pos[i] = width + 0.1;
-            
+        // Smooth continuous wrapping
+        if (clouds.x_pos[i] < -150) {
+            clouds.x_pos[i] = width + 150;
         } else {
             clouds.x_pos[i] = clouds.x_pos[i] - 0.1;
         }
@@ -694,16 +784,21 @@ function drawTrees() {
 	}
 }
 
+// ==================== GAME LOGIC & COLLISIONS ====================
+
 function drawCollectables(coinCollectable) {
 	for (var i = 0; i < coinCollectable.length; i++) {
 		if (coinCollectable[i].isFound == false) {
+            // Bouncing animation for coins
+            let coinBounce = sin(frameCount * 0.08 + i * 0.5) * 4;
+            
             fill(255, 223, 0);
-            ellipse(coinCollectable[i].x_pos, coinCollectable[i].y_pos, 
+            ellipse(coinCollectable[i].x_pos, coinCollectable[i].y_pos + coinBounce, 
             coinCollectable[i].size - 31, coinCollectable[i].size - 27);
             
             strokeWeight(1.5);
             stroke(196, 167, 53);
-            ellipse(coinCollectable[i].x_pos, coinCollectable[i].y_pos, 
+            ellipse(coinCollectable[i].x_pos, coinCollectable[i].y_pos + coinBounce, 
             coinCollectable[i].size - 37, coinCollectable[i].size - 33);
             noStroke();
 		}
@@ -716,8 +811,15 @@ function checkCollectables(coinCollectable) {
             if (coinCollectable[i].isFound == false) {
                 coinCollectable[i].isFound = true
                 scoreCoin += 1;
-                coinSound.play();
-                coinSound.setVolume(0.5);
+                totalCoinsCollected += 1;
+                
+                // Create particle effect at coin collection
+                createCoinParticles(coinCollectable[i].x_pos, coinCollectable[i].y_pos);
+                
+                if(coinSound) {
+                    coinSound.play();
+                    coinSound.setVolume(0.5);
+                }
             }
 		}
     }   
@@ -734,7 +836,7 @@ function checkCanyons(r_canyon) {
 	for(var i = 0; i < r_canyon.length; i++) {
 		if ((gameChar_x >= r_canyon[i].pos_x && gameChar_x <= r_canyon[i].pos_x +85 || gameChar_x <= floor.x_pos) 
         && gameChar_y >= 489) {
-            r_canyon.isFound = true;
+            canyon.isFound = true; // Fixed: was r_canyon.isFound
 		}
 	}
 }
@@ -795,12 +897,16 @@ function loadScreen() {
     // The following message appears on the screen: "Click to start the game." 
     // The game menu appears after the user interacts with the screen, activating the sound.
 
-    background(255);
-    fill(0);
+    background(16, 40, 73);
+    fill(255);
+    textAlign(CENTER, CENTER);
     textSize(30);
-    text("Click to start the game", width/2 - 150, height/2);
-    deadSound.stop();
+    text("Click to start the game", width/2, height/2);
+    textAlign(LEFT, BASELINE); // Reset text alignment
+    if(deadSound) deadSound.stop();
 }
+
+// ==================== SCREEN & STATE ====================
 
 function createPlatform(x, y, length) {
     var p = {
@@ -808,13 +914,21 @@ function createPlatform(x, y, length) {
         y: y,
         length: length,
         draw: function() {
-            fill(36,135,55);
-            rect(this.x, this.y, this.length, 8, 8)
+            // Base platform
+            fill(36, 135, 55);
+            rect(this.x, this.y, this.length, 8, 8);
+            
+            // Gradient highlight on top
+            for(let i = 0; i < this.length; i += 4) {
+                let gradientAlpha = 255 * (1 - i / this.length);
+                fill(100, 200, 100, gradientAlpha * 0.4);
+                rect(this.x + i, this.y, 4, 4, 2);
+            }
         },
         checkPlatform: function(char_x, char_y) {
-            if(char_x > this.x -10 && char_x < this.x + this.length) {
+            if(char_x > this.x - 10 && char_x < this.x + this.length) {
                 var d = this.y - char_y;
-                if(d >= 0 && d <2) {
+                if(d >= 0 && d < 2) {
                     return true;
                 }
             }
@@ -831,24 +945,23 @@ function Enemy(x, y, range) {
 
     this.current_x = x;
     this.inc = 1.4;
+    this.facingLeft = false; // Instance-specific direction
 
     this.update = function() {
         this.current_x += this.inc;
         if(this.current_x > this.x + this.range) {
             this.inc = -1.4;
-            eneLeft = true;
-            eneRight = false;
+            this.facingLeft = true;
         }
         if(this.current_x < this.x) {
             this.inc = 1.4;
-            eneLeft = false;
-            eneRight = true;
+            this.facingLeft = false;
         }
     }
 
     this.draw = function() {
         this.update();
-        createEnemies(this.current_x, this.y);
+        createEnemies(this.current_x, this.y, this.facingLeft);
     }
     this.checkEnemies = function(char_x, char_y) {
         var d = dist(char_x, char_y, this.current_x, this.y);
@@ -859,9 +972,9 @@ function Enemy(x, y, range) {
     }
 }
 
-function createEnemies(current_x, current_y) {
+function createEnemies(current_x, current_y, facingLeft) {
     // left 
-    if(eneLeft == true) {
+    if(facingLeft == true) {
         //Head and body
 		fill(216, 31, 50); //color
 		ellipse(current_x - 9, current_y - 47, 17.5, 19);
@@ -926,4 +1039,14 @@ function createEnemies(current_x, current_y) {
 		strokeWeight(1);
         noStroke();
     }
+}
+
+function createCoinParticles(x, y) {
+    for(let i = 0; i < 8; i++) {
+        particles.push(new Particle(x, y));
+    }
+}
+
+function createHitEffect(x, y) {
+    particles.push(new HitEffect(x, y));
 }
